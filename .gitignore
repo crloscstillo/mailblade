@@ -17,3 +17,5 @@ xcuserdata
 .svn
 CVS
 config/smtp.php
+templates/*
+
