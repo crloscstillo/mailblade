@@ -20,7 +20,8 @@ class SMTP
 	// auth
 	private $host;
 	private $port;
-	private $secure; // null, ssl, or tls
+	private $secure; // null, 'ssl', or 'tls'
+	private $auth; // true if authorization required
 	private $user;
 	private $pass;
 	
@@ -34,25 +35,38 @@ class SMTP
 	private $text;
 	private $subject;
 	private $attachments = array();
+	private $text_mode = false;
 	
 	// misc
 	private $charset = 'UTF-8';
 	private $newline = "\r\n";
 	private $encoding = '7bit';
 	private $wordwrap = 70;
-	private $text_mode = false;
 
-	public function __construct()
+	public function __construct($connection = null)
 	{
 		// load config
 		$config = Config::get('mailblade::smtp');
+	
+		// if no connection...
+		if (!$connection)
+		{
+			// load connection
+			$connection = $config['connections'][$config['default']];
+		}
+		else
+		{
+			// load connection
+			$connection = $config['connections'][$connection];
+		}
 		
-		// set server vars
-		$this->host   = $config['host'];
-		$this->port   = $config['port'];
-		$this->secure = $config['secure'];
-		$this->user   = $config['user'];
-		$this->pass   = $config['pass'];
+		// set connection vars
+		$this->host = $connection['host'];
+		$this->port = $connection['port'];
+		$this->secure = $connection['secure'];
+		$this->auth = $connection['auth'];
+		$this->user = $connection['user'];
+		$this->pass = $connection['pass'];
 		
 		// set debug mode
 		$this->debug_mode = $config['debug_mode'];
@@ -60,42 +74,128 @@ class SMTP
 	
 	public function from($email, $name = null)
 	{
-		$this->from = array(
-			'email' => $email,
-			'name' => $name,
-		);
+		// if not array...
+		if (!is_array($email))
+		{
+			// set normal
+			$this->from = array(
+				'email' => $email,
+				'name' => $name,
+			);
+		}
+		else
+		{
+			// set convention
+			$this->from = array(
+				'email' => isset($email[0]) ? $email[0] : null,
+				'name' => isset($email[1]) ? $email[1] : null,
+			);			
+		}
 	}
 	
 	public function reply($email, $name = null)
 	{
-		$this->reply = array(
-			'email' => $email,
-			'name' => $name,
-		);
+		// if not array...
+		if (!is_array($email))
+		{
+			// set normal
+			$this->reply = array(
+				'email' => $email,
+				'name' => $name,
+			);
+		}
+		else
+		{
+			// set convention
+			$this->reply = array(
+				'email' => isset($email[0]) ? $email[0] : null,
+				'name' => isset($email[1]) ? $email[1] : null,
+			);			
+		}
 	}
 	
 	public function to($email, $name = null)
 	{
-		$this->to[] = array(
-			'email' => $email,
-			'name' => $name,
-		);
+		// if not array...
+		if (!is_array($email))
+		{
+			// set normal
+			$this->to[] = array(
+				'email' => $email,
+				'name' => $name,
+			);
+		}
+		else
+		{
+			// spin array...
+			foreach ($email as $e)
+			{
+				// fix array
+				if (!is_array($e)) $e = array($e);
+			
+				// set convention
+				$this->to[] = array(
+					'email' => isset($e[0]) ? $e[0] : null,
+					'name' => isset($e[1]) ? $e[1] : null,
+				);
+			}
+		}
 	}
 	
 	public function cc($email, $name = null)
 	{
-		$this->cc[] = array(
-			'email' => $email,
-			'name' => $name,
-		);
+		// if not array...
+		if (!is_array($email))
+		{
+			// set normal
+			$this->cc[] = array(
+				'email' => $email,
+				'name' => $name,
+			);
+		}
+		else
+		{
+			// spin array...
+			foreach ($email as $e)
+			{
+				// fix array
+				if (!is_array($e)) $e = array($e);
+			
+				// set convention
+				$this->cc[] = array(
+					'email' => isset($e[0]) ? $e[0] : null,
+					'name' => isset($e[1]) ? $e[1] : null,
+				);
+			}
+		}
 	}
 	
 	public function bcc($email, $name = null)
 	{
-		$this->bcc[] = array(
-			'email' => $email,
-			'name' => $name,
-		);
+		// if not array...
+		if (!is_array($email))
+		{
+			// set normal
+			$this->bcc[] = array(
+				'email' => $email,
+				'name' => $name,
+			);
+		}
+		else
+		{
+			// spin array...
+			foreach ($email as $e)
+			{
+				// fix array
+				if (!is_array($e)) $e = array($e);
+			
+				// set convention
+				$this->bcc[] = array(
+					'email' => isset($e[0]) ? $e[0] : null,
+					'name' => isset($e[1]) ? $e[1] : null,
+				);
+			}
+		}
 	}
 	
 	public function body($html)
@@ -115,13 +215,30 @@ class SMTP
 	
 	public function attach($path)
 	{
-		$this->attachments[] = $path;
+		// if not array...
+		if (!is_array($path))
+		{
+			// add
+			$this->attachments[] = $path;
+		}
+		else
+		{
+			// spin array...
+			foreach ($path as $p)
+			{
+				// add
+				$this->attachments[] = $p;
+			}
+		}
 	}
 	
 	public function send_text()
 	{
+		// text mode
 		$this->text_mode = true;
-		$this->send();
+		
+		// return
+		return $this->send();
 	}
 	
 	public function send()
@@ -155,43 +272,62 @@ class SMTP
 	{
 		// modify url, if needed
 		if ($this->secure === 'ssl') $this->host = 'ssl://'.$this->host;
-	
-		// connect to server
+		
+		// After each request we send to the SMTP server, we'll call the
+		// response() method to see what the server had to say.  If debug mode
+		// is activated, then these responses will be printed to the screen.
+		// Note that the code() method automatically calls response().
+		
+		// open connection
 		$this->connection = fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
+		
+		// response
 		if ($this->code() !== 220) return false;
 		
-		// send helo
-		fputs($this->connection, 'HELO '.$this->localhost.$this->newline);
-		$this->status();
+		// request
+		$this->request('HELO '.$this->localhost.$this->newline);
+		
+		// response
+		$this->response();
 		
 		// if tls required...
-		if($this->secure === 'tls')
+		if ($this->secure === 'tls')
 		{
-			// send starttls
-			fputs($this->connection, 'STARTTLS'.$this->newline);
+			// request
+			$this->request('STARTTLS'.$this->newline);
+			
+			// response
 			if ($this->code() !== 220) return false;
 			
 			// enable crypto
 			stream_socket_enable_crypto($this->connection, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
 			
-			// send helo
-			fputs($this->connection, 'HELO '.$this->localhost.$this->newline);
+			// request
+			$this->request('HELO '.$this->localhost.$this->newline);
+			
+			// response
 			if ($this->code() !== 250) return false;
 		}
 		
-		// if not localhost...
-		if($this->host !== 'localhost')
+		// if auth required...
+		if ($this->auth)
 		{
-			// send auth login
-			fputs($this->connection, 'AUTH LOGIN'.$this->newline);
+			// request
+			$this->request('AUTH LOGIN'.$this->newline);
+			
+			// response
 			if ($this->code() !== 334) return false;
 			
-			// send username
-			fputs($this->connection, base64_encode($this->user).$this->newline);
+			// request
+			$this->request(base64_encode($this->user).$this->newline);
+			
+			// response
 			if ($this->code() !== 334) return false;
 			
-			// send password
-			fputs($this->connection, base64_encode($this->pass).$this->newline);
+			// request
+			$this->request(base64_encode($this->pass).$this->newline);
+			
+			// response
 			if ($this->code() !== 235) return false;
 		}
 		
@@ -334,24 +470,33 @@ class SMTP
 	
 	private function smtp_deliver()
 	{
-		// send mailfrom
-		fputs($this->connection, 'MAIL FROM: <'. $this->from['email'] .'>'.$this->newline);
-		$this->status();
+		// request
+		$this->request('MAIL FROM: <'. $this->from['email'] .'>'.$this->newline);
 		
-		// send rcptto
+		// response
+		$this->response();
+		
+		// spin recipients...
 		$recipients = $this->to + $this->cc + $this->bcc;
 		foreach ($recipients as $r)
 		{
-			fputs($this->connection, 'RCPT TO: <'.$r['email'].'>'.$this->newline);
-			$this->status();
+			// request
+			$this->request('RCPT TO: <'.$r['email'].'>'.$this->newline);
+			
+			// response
+			$this->response();
 		}
 		
-		// send data
-		fputs($this->connection, 'DATA'.$this->newline);
-		$this->status();
+		// request
+		$this->request('DATA'.$this->newline);
 		
-		// send headers
-		fputs($this->connection, $this->smtp_construct());
+		// response
+		$this->response();
+		
+		// request
+		$this->request($this->smtp_construct());
+		
+		// response
 		if ($this->code() === 250)
 		{
 			return true;
@@ -364,15 +509,32 @@ class SMTP
 	
 	private function smtp_disconnect()
 	{
-		// send quit
-		fputs($this->connection, 'QUIT'.$this->newline);
-		$this->status();
+		// request
+		$this->request('QUIT'.$this->newline);
+		
+		// response
+		$this->response();
 		
 		// close connection
 		fclose($this->connection);
 	}
 	
-	private function status()
+	private function code()
+	{
+		// filter code from response
+		return (int) substr($this->response(), 0, 3);
+	}
+	
+	private function request($string)
+	{
+		// report
+		if ($this->debug_mode) echo '<code><strong>'.$string.'</strong></code><br/>';
+		
+		// send
+		fputs($this->connection, $string);
+	}
+	
+	private function response()
 	{
 		// get response
 		$response = '';
@@ -387,12 +549,6 @@ class SMTP
 		
 		// return
 		return $response;
-	}
-	
-	private function code()
-	{
-		// filter code from response
-		return (int) substr($this->status(), 0, 3);
 	}
 	
 	private function format($recipient)
