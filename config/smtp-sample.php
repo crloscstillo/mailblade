@@ -1,21 +1,40 @@
 <?php
 
-/*
-|--------------------------------------------------------------------------
-| Mailblade SMTP Configuration
-|--------------------------------------------------------------------------
-*/
-
 return array(
 
-	// smtp credentials
-	'host'   => '',
-	'port'   => ,
-	'secure' => , // null, ssl, or tls
-	'user'   => ,
-	'pass'   => ,
-
-	// debug
+	/*
+	|--------------------------------------------------------------------------
+	| Debug mode
+	|--------------------------------------------------------------------------
+	|
+	| Will echo connection status alerts to the screen
+	| throughout the email sending process.
+	| Very helpful when testing your credentials.
+	|
+	*/
 	'debug_mode' => false,
+	
+	/*
+	|--------------------------------------------------------------------------
+	| Connections
+	|--------------------------------------------------------------------------
+	|
+	| Define the different connections that can be used.
+	| You can set which connection to use when you create
+	| the SMTP object: ``$mail = new SMTP('my_connection')``.
+	*/
+	'default' => 'primary',
+
+	'connections' => array(
+
+		'primary' => array(
+			'host' => '',
+			'port' => '',
+			'secure' => null, // null, 'ssl', or 'tls'
+			'auth' => false, // true if authorization required
+			'user' => '',
+			'pass' => '',
+		),
+	),
 
 );
