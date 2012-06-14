@@ -75,7 +75,7 @@ class Mailblade extends SMTP {
 	 */
 	public function compile_html()
 	{
-		$content = $this->get_template('html');
+		$content = $this->get_html();
 
 		foreach ($this->template_params as $param => $value)
 		{
@@ -92,7 +92,7 @@ class Mailblade extends SMTP {
 	 */
 	public function compile_text()
 	{
-		$content = $this->get_template('text');
+		$content = $this->get_text();
 
 		foreach ($this->template_params as $param => $value)
 		{
@@ -112,5 +112,15 @@ class Mailblade extends SMTP {
 	public function get_template($type)
 	{
 		return file_get_contents(Bundle::path('mailblade').'templates'.DS.$type.DS.$this->template_name.'.php');
+	}
+
+	public function get_html()
+	{
+		return file_get_contents(Bundle::path('mailblade').'templates'.DS.'html'.DS.$this->template_name.'.html');
+	}
+
+	public function get_text()
+	{
+		return file_get_contents(Bundle::path('mailblade').'templates'.DS.'text'.DS.$this->template_name.'.txt');
 	}
 }
